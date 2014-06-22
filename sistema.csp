@@ -1,0 +1,47 @@
+-- ** TIPOS E DADOS ** --
+id = {1..3}
+origem = {1..3}
+destino = {1..4}
+
+
+-- ** CANAIS/EVENTOS ** --
+
+channel recebeChamado : origem
+channel recebeCliente : destino
+channel aceitaChamado, rejeitaChamado, chegaNoDestino
+channel transitoLivre, transitoEngarrafado
+
+
+-- ** PROCESSOS ** --
+
+TAXI(id) = 
+		
+		(recebeChamado?origem -> 
+				
+		aceitaChamado -> CORRIDA(0, origem);
+		
+		recebeCliente?destino -> CORRIDA(0, destino);
+		
+		chegaNoDestino -> TAXI(id))
+	[]		
+	  	rejeitaChamado -> TAXI(id)									
+			  		
+CORRIDA(contador, destino) = 
+		
+		if contador < destino then 
+			CORRIDA(contador + 1, destino) 
+		else 
+			SKIP
+	
+		
+-- ** SYNC ** --		
+		
+TAXIS = ||| i: id @ TAXI(i)
+
+
+-- ** ASSERTS ** --
+
+assert TAXIS :[deadlock free]
+assert TAXIS :[deterministic]
+assert TAXI(1) :[deadlock free]
+assert TAXI(1) :[deterministic]
