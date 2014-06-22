@@ -1,6 +1,6 @@
 -- ** TIPOS E DADOS ** --
 id = {1..3}
-origem = {1..3}
+origem = {1..5}
 destino = {1..4}
 
 
@@ -9,31 +9,30 @@ destino = {1..4}
 channel recebeChamado : origem
 channel recebeCliente : destino
 channel aceitaChamado, rejeitaChamado, chegaNoDestino
-channel transitoLivre, transitoEngarrafado
 
 
 -- ** PROCESSOS ** --
 
 TAXI(id) = 
 		
-		(recebeChamado?origem -> 
+		recebeChamado?origem -> 
 				
-		aceitaChamado -> CORRIDA(0, origem);
+		((aceitaChamado -> DESLOCAMENTO(id, 0, origem);
 		
-		recebeCliente?destino -> CORRIDA(0, destino);
+		recebeCliente?destino -> DESLOCAMENTO(id, 0, destino);
 		
 		chegaNoDestino -> TAXI(id))
 	[]		
-	  	rejeitaChamado -> TAXI(id)									
+	  	(rejeitaChamado -> TAXI(id)))									
 			  		
-CORRIDA(contador, destino) = 
+DESLOCAMENTO(taxi, origem, destino) = 
 		
-		if contador < destino then 
-			CORRIDA(contador + 1, destino) 
-		else 
+		if origem == destino then 
 			SKIP
-	
-		
+		else 
+			DESLOCAMENTO(taxi, origem + 1, destino)
+			
+
 -- ** SYNC ** --		
 		
 TAXIS = ||| i: id @ TAXI(i)
@@ -43,5 +42,3 @@ TAXIS = ||| i: id @ TAXI(i)
 
 assert TAXIS :[deadlock free]
 assert TAXIS :[deterministic]
-assert TAXI(1) :[deadlock free]
-assert TAXI(1) :[deterministic]
