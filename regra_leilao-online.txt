@@ -1,0 +1,32 @@
+-- Cliente --
+
+* Pode programar um agente vendedor com:
+** o produto que quer vender
+** o valor inicial dos lances 
+
+* Pode programar um agente comprador com:
+** o produto que quer comprar
+** valor máximo dos lances
+
+
+-- Agente --
+
+* Dá o primeiro lance quem chegar primeiro (fila de agentes)
+* Cada agente pode dar 3 lances no máximo
+* Ganha quem der o maior lance por ultimo após todos os agentes
+esgotarem seus lances (3). Obs.: Um valor de lance não pode ser repetido
+por nenhum outro agente.
+
+-- Servidor --
+
+* Recebe um agente vendedor e cria um leilão
+* Apos um leilão criado, este pode receber agentes compradores (através do servidor) 
+para aquele produto
+* O servidor pode conter varios leilões
+
+
+-- Leilão --
+
+* O leilão pode suportar 1 agente vendedor e 3 outros compradores
+* O leilão inicia quando o numero de participantes estiver completo
+* O leilão termina quando os compradores esgotarem os números de lances 

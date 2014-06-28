@@ -1,27 +1,30 @@
 
 datatype agente = vendedor | comprador
+a = agente
 datatype produto = tv | tablet | notebook
 cliente = {1..3}
 valor = {10..12}
 
-channel leiloar, comprar: cliente.agente.produto.valor
+channel leiloar, arrematar: agente.produto.valor
 channel make: agente.cliente
+channel vender, comprar
 
 -- ** CLIENTE ** --
 
-CLIENTE(id) = SKIP
+CLIENTE(id) = vender -> make.vendedor!id -> CLIENTE(id) [] comprar -> make.comprador!id -> CLIENTE(id)
 
 
 -- ** AGENTE ** --
-AGENTE(tipo, proprietario) = make!tipo!proprietario -> AGENTE(tipo, proprietario)
 
+AGENTE(tipo, proprietario) = make!tipo!proprietario -> AGENTE(tipo, proprietario)								
+															
 
 -- ** SERVIDOR ** --
 
 SERVIDOR = 
-			leiloar?cliente?agente?produto?valor -> SERVIDOR
+			leiloar?agente?produto?valor -> SERVIDOR
 		[]
-			comprar?cliente?agente?produto?valor -> SERVIDOR
+			arrematar?agente?produto?valor -> SERVIDOR
 
 -- ** LEILAO ** --
 			
