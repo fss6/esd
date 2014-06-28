@@ -5,6 +5,7 @@ cliente = {1..3}
 valor = {10..12}
 
 channel leiloar, comprar: cliente.agente.produto.valor
+channel make: agente.cliente
 
 -- ** CLIENTE ** --
 
@@ -12,7 +13,7 @@ CLIENTE(id) = SKIP
 
 
 -- ** AGENTE ** --
-AGENTE(id, cliente) = SKIP
+AGENTE(tipo, proprietario) = make!tipo!proprietario -> AGENTE(tipo, proprietario)
 
 
 -- ** SERVIDOR ** --
@@ -26,6 +27,11 @@ SERVIDOR =
 			
 LEILAO = SKIP
 
-assert SKIP ||| SERVIDOR :[deadlock free]
-assert SKIP ||| SERVIDOR :[deterministic]
+-- ** SYNC ** --
+
+AGENTES = ||| tipo :agente, proprietario :cliente @ AGENTE(tipo,proprietario)
+
+assert AGENTES ||| SERVIDOR :[deadlock free]
+assert AGENTES ||| SERVIDOR :[deterministic]
+assert STOP [T= AGENTES
 			
