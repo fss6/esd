@@ -1,14 +1,14 @@
-cliente = {1..3}
-agente = {1..3}
-datatype produto = tv | tablet | notebook
-valor = {1..3}
 
-channel cadastrar: cliente.agente
-channel leiloar, comprar: cliente.produto.valor
+datatype agente = vendedor | comprador
+datatype produto = tv | tablet | notebook
+cliente = {1..3}
+valor = {10..12}
+
+channel leiloar, comprar: cliente.agente.produto.valor
 
 -- ** CLIENTE ** --
 
-CLIENTE = CLIENTE
+CLIENTE(id) = SKIP
 
 
 -- ** AGENTE ** --
@@ -18,13 +18,14 @@ AGENTE(id, cliente) = SKIP
 -- ** SERVIDOR ** --
 
 SERVIDOR = 
-			cadastrar?cliente?agente -> SERVIDOR
+			leiloar?cliente?agente?produto?valor -> SERVIDOR
 		[]
-			leiloar?cliente?produto?valor -> SERVIDOR
-		[]
-			comprar?cliente?produto?valor -> SERVIDOR
+			comprar?cliente?agente?produto?valor -> SERVIDOR
 
 -- ** LEILAO ** --
 			
 LEILAO = SKIP
+
+assert SKIP ||| SERVIDOR :[deadlock free]
+assert SKIP ||| SERVIDOR :[deterministic]
 			
