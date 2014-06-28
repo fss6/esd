@@ -3,15 +3,15 @@ id = {1..3}
 origem = {1..5}
 destino = {1..4}
 
-
 -- ** CANAIS/EVENTOS ** --
 
 channel recebeChamado : origem
-channel recebeCliente : destino
+channel recebeCliente, chegouTaxi : destino
 channel aceitaChamado, rejeitaChamado, chegaNoDestino
-
+channel up : id
 
 -- ** PROCESSOS ** --
+
 
 TAXI(id) = 
 		
@@ -30,7 +30,17 @@ DESLOCAMENTO(taxi, origem, destino) =
 		if origem == destino then 
 			SKIP
 		else 
-			DESLOCAMENTO(taxi, origem + 1, destino)
+			up!taxi -> DESLOCAMENTO(taxi, origem + 1, destino)
+			
+			
+CENTRAL(clientes) = 
+		
+		recebeChamado?cliente_id ->
+		
+		if member(clientes,cliente_id) then
+			CENTRAL(clientes)
+		else
+			CENTRAL(union(clientes,{cliente_id})) 			
 			
 
 -- ** SYNC ** --		
@@ -42,3 +52,4 @@ TAXIS = ||| i: id @ TAXI(i)
 
 assert TAXIS :[deadlock free]
 assert TAXIS :[deterministic]
+
