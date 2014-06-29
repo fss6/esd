@@ -1,3 +1,6 @@
+------------------------------------------------------------------------
+TIPOS E DADOS
+------------------------------------------------------------------------
 
 datatype agente = vendedor | comprador
 datatype produto = tv | tablet | notebook
@@ -6,34 +9,48 @@ valor = {10..12}
 
 channel leiloar, arrematar: agente.produto.valor
 channel make: agente.cliente
-channel vender, comprar
+channel vender, comprar, teste
 
--- ** CLIENTE ** --
+------------------------------------------------------------------------
+CLIENTE
+------------------------------------------------------------------------
 
-CLIENTE(id) = vender -> make.vendedor!id -> CLIENTE(id) [] comprar -> make.comprador!id -> CLIENTE(id)
+CLIENTE(id) = 
+			
+			vender -> make.vendedor!id -> AGENTE(); CLIENTE(id)
+		[] 
+			comprar -> make.comprador!id -> CLIENTE(id)
 
+------------------------------------------------------------------------
+AGENTE
+------------------------------------------------------------------------
 
--- ** AGENTE ** --
-
-AGENTE(tipo, proprietario) = make!tipo!proprietario -> AGENTE(tipo, proprietario)								
-															
-
--- ** SERVIDOR ** --
+AGENTE = 
+			vender -> leiloar -> SKIP
+		[]												
+			comprar -> arrematar -> SKIP
+			
+------------------------------------------------------------------------
+SERVIDOR
+------------------------------------------------------------------------
 
 SERVIDOR = 
-			leiloar?agente?produto?valor -> SERVIDOR
+			leiloar?agente?produto?valor_inicial -> SERVIDOR
 		[]
-			arrematar?agente?produto?valor -> SERVIDOR
+			arrematar?agente?produto?valor_maximo -> SERVIDOR
 
--- ** LEILAO ** --
+------------------------------------------------------------------------
+LEILAO
+------------------------------------------------------------------------
 			
 LEILAO = SKIP
 
--- ** SYNC ** --
+------------------------------------------------------------------------
+SYNC
+------------------------------------------------------------------------
 
-AGENTES = ||| tipo :agente, proprietario :cliente @ AGENTE(tipo,proprietario)
+CLIENTES = ||| id :cliente @ CLIENTE(id)
 
-assert AGENTES ||| SERVIDOR :[deadlock free]
-assert AGENTES ||| SERVIDOR :[deterministic]
-assert STOP [T= AGENTES
+assert CLIENTE(1) :[deterministic]
+
 			
