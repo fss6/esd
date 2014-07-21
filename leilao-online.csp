@@ -2,46 +2,54 @@
 -- TIPOS E DADOS
 ------------------------------------------------------------------------
 
-id_agente = { 1..3 }
-datatype produto = notebook | televisao | tablet | celular
-lance_maximo = { 5..10 }
-lance_minimo = { 1..5 }
+id = { 1..3 }
+datatype produto =  notebook | televisao | tablet | celular
+preco = { 1..10 }
 
 ------------------------------------------------------------------------
 -- CANAIS
 ------------------------------------------------------------------------
 
-channel programarComprador : id_agente.produto.lance_maximo
-channel programarVendedor : id_agente.produto.lance_minimo
-
+channel programarVendedor : id.produto.preco
+channel abrirLeilao, iniciarLeilao : id.produto.preco
 ------------------------------------------------------------------------
--- CLIENTE
+-- USUARIO
 ------------------------------------------------------------------------
 
-CLIENTE(id) = SKIP 
-
+USUARIO(id_usuario, produto, preco) = 
+        programarVendedor!id_usuario!produto!preco -> USUARIO(id_usuario, produto, preco)
 
 ------------------------------------------------------------------------
 -- AGENTE
 ------------------------------------------------------------------------
 
+AGENTE(id_agente, produto, preco) = 
+    
+    programarVendedor?id_agente?produto?preco -> 
 
-			
+        abrirLeilao!id_agente!produto!preco -> 
+
+            AGENTE(id_agente, produto, preco)
+
 ------------------------------------------------------------------------
 -- SERVIDOR
 ------------------------------------------------------------------------
+SERVIDOR = abrirLeilao?id_vendedor?produto?preco -> LEILOES(id_vendedor, produto, preco) ; SERVIDOR
 
+LEILOES(id_vendedor, produto, preco) = ||| id: id @ LEILAO(id, id_vendedor, produto, preco)
 
-
+assert SERVIDOR :[deterministic]
+assert SERVIDOR :[deadlock free]
 ------------------------------------------------------------------------
 -- LEILAO
 ------------------------------------------------------------------------
 
-			
+LEILAO(id, id_vendedor, produto, preco) = SKIP
+    
 
 
 ------------------------------------------------------------------------
 -- SYNC
 ------------------------------------------------------------------------
 
--- CLIENTES = ||| id :cliente @ CLIENTE(id)			
+-- 
