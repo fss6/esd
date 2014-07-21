@@ -1,8 +1,15 @@
 ------------------------------------------------------------------------
 -- TIPOS E DADOS
 ------------------------------------------------------------------------
-cliente = {1..3}
-
+id_agente = { 1..3 }
+produto = notebook | televisao | tablet | celular
+lance_maximo { 5..10 }
+lance_minimo { 1..5 }
+------------------------------------------------------------------------
+-- CANAIS
+------------------------------------------------------------------------
+channel programarComprador : id_agente.produto.lance_maximo
+channel programarVendedor : id_agente.produto.lance_minimo
 
 ------------------------------------------------------------------------
 -- CLIENTE
