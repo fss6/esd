@@ -1,56 +1,40 @@
 ------------------------------------------------------------------------
-TIPOS E DADOS
+-- TIPOS E DADOS
 ------------------------------------------------------------------------
 
-datatype agente = vendedor | comprador
-datatype produto = tv | tablet | notebook
 cliente = {1..3}
-valor = {10..12}
 
-channel leiloar, arrematar: agente.produto.valor
-channel make: agente.cliente
-channel vender, comprar, teste
 
 ------------------------------------------------------------------------
-CLIENTE
+-- CLIENTE
 ------------------------------------------------------------------------
 
-CLIENTE(id) = 
-			
-			vender -> make.vendedor!id -> AGENTE(); CLIENTE(id)
-		[] 
-			comprar -> make.comprador!id -> CLIENTE(id)
+CLIENTE(id) = SKIP 
+
 
 ------------------------------------------------------------------------
-AGENTE
+-- AGENTE
 ------------------------------------------------------------------------
 
-AGENTE = 
-			vender -> leiloar -> SKIP
-		[]												
-			comprar -> arrematar -> SKIP
+
 			
 ------------------------------------------------------------------------
-SERVIDOR
+-- SERVIDOR
 ------------------------------------------------------------------------
 
-SERVIDOR = 
-			leiloar?agente?produto?valor_inicial -> SERVIDOR
-		[]
-			arrematar?agente?produto?valor_maximo -> SERVIDOR
+
 
 ------------------------------------------------------------------------
-LEILAO
+-- LEILAO
 ------------------------------------------------------------------------
+
 			
-LEILAO = SKIP
+
 
 ------------------------------------------------------------------------
-SYNC
+-- SYNC
 ------------------------------------------------------------------------
 
-CLIENTES = ||| id :cliente @ CLIENTE(id)
-
-assert CLIENTE(1) :[deterministic]
+-- CLIENTES = ||| id :cliente @ CLIENTE(id)
 
 			
