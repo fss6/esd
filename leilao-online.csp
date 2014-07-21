@@ -4,7 +4,7 @@
 
 id = { 1..3 }
 datatype produto =  notebook | televisao | tablet | celular
-preco = { 1..10 }
+preco = { 10,15,20 }
 
 ------------------------------------------------------------------------
 -- CANAIS
