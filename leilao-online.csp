@@ -1,55 +1,57 @@
 ------------------------------------------------------------------------
 -- TIPOS E DADOS
 ------------------------------------------------------------------------
-
-id = { 1..3 }
-datatype produto =  notebook | televisao | tablet | celular
-preco = { 1..10 }
+N = 3
+ids = { 1..N }
+datatype produto =  notebook | tablet | celular
+valor = { 4, 8 }
 
 ------------------------------------------------------------------------
 -- CANAIS
 ------------------------------------------------------------------------
 
-channel programarVendedor : id.produto.preco
-channel abrirLeilao, iniciarLeilao : id.produto.preco
-------------------------------------------------------------------------
--- USUARIO
-------------------------------------------------------------------------
-
-USUARIO(id_usuario, produto, preco) = 
-        programarVendedor!id_usuario!produto!preco -> USUARIO(id_usuario, produto, preco)
+channel vender : ids.produto.valor
+channel comprar : ids.produto
 
 ------------------------------------------------------------------------
 -- AGENTE
 ------------------------------------------------------------------------
 
-AGENTE(id_agente, produto, preco) = 
-    
-    programarVendedor?id_agente?produto?preco -> 
+AGENTE(id, produto, valor) = 
+					
+					vender!id!produto!valor -> AGENTE(id, produto, valor)
+				[]
 
-        abrirLeilao!id_agente!produto!preco -> 
+					comprar!id!produto -> AGENTE(id, produto, valor)
 
-            AGENTE(id_agente, produto, preco)
 
+AGENTES = ||| id:ids, p:produto, v:valor @ AGENTE(id, p, v) 
 ------------------------------------------------------------------------
--- SERVIDOR
-------------------------------------------------------------------------
-SERVIDOR = abrirLeilao?id_vendedor?produto?preco -> LEILOES(id_vendedor, produto, preco) ; SERVIDOR
-
-LEILOES(id_vendedor, produto, preco) = ||| id: id @ LEILAO(id, id_vendedor, produto, preco)
-
-assert SERVIDOR :[deterministic]
-assert SERVIDOR :[deadlock free]
-------------------------------------------------------------------------
--- LEILAO
+-- VENDA_ON_LINE
 ------------------------------------------------------------------------
 
-LEILAO(id, id_vendedor, produto, preco) = SKIP
-    
+VENDA(produto, valor) = 
+								
+								vender?vendedor?produto?valor -> VENDA(produto, valor)
+							[]
+								comprar?comprador?prod -> if( produto != prod ) then 
 
+															VENDA(produto, valor)
+
+														  else 
+
+														  	LEILAO(produto, valor, {comprador})
+
+VENDAS_ON_LINE = ||| p:produto, v:valor @ VENDA(p, v)
+
+
+LEILAO(produto, valor, compradores) = SKIP
+
+
+
+assert AGENTES [|{|vender, comprar|}|] VENDAS_ON_LINE  :[deadlock free] 
+assert AGENTES [|{|vender, comprar|}|] VENDAS_ON_LINE  :[deterministic] 
 
 ------------------------------------------------------------------------
 -- SYNC
-------------------------------------------------------------------------
-
--- 
+------------------------------------------------------------------------ 
