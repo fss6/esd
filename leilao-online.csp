@@ -1,6 +1,7 @@
 ------------------------------------------------------------------------
 -- TIPOS E DADOS
 ------------------------------------------------------------------------
+
 N = 4
 ids = { 1..N }
 datatype produto =  notebook | tablet
@@ -33,28 +34,28 @@ verificarLance(comprador, lance, valor) = if lance == valor then true else false
 -- AGENTE
 ------------------------------------------------------------------------
 
-AGENTE(id, produto, valor) = 
-		vender!produto!valor -> AGENTE(id, produto, valor)
+AGENTE(agenteId, produto, valor) = 
+		vender!produto!valor -> AGENTE(agenteId, produto, valor)
 	[]
-		comprar!id!produto -> AGENTE(id, produto, valor)
+		comprar!agenteId!produto -> AGENTE(agenteId, produto, valor)
 
 
-AGENTES = ||| id:ids, p:produto, v:valor @ AGENTE(id, p, v) 
+AGENTES = ||| agenteId:ids, p:produto, v:valor @ AGENTE(agenteId, p, v) 
 
 ------------------------------------------------------------------------
 -- VENDAS
 ------------------------------------------------------------------------
 
-VENDA(produto, valor) = 
-		vender?produto?valor -> VENDA(produto, valor)
+COMPRA_E_VENDA(produto, valor) = 
+		vender?produto?valor -> COMPRA_E_VENDA(produto, valor)
 	[]
 		comprar?comprador?prod -> if( produto != prod ) then 
-								 	VENDA(produto, valor)
+								 	COMPRA_E_VENDA(produto, valor)
 								  else
-								 	processar!comprador -> VENDA(produto, valor)
+								 	processar!comprador -> COMPRA_E_VENDA(produto, valor)
 
 
-VENDAS = ||| p:produto, v:valor @ VENDA(p, v)
+COMPRAS_E_VENDAS = ||| p:produto, v:valor @ COMPRA_E_VENDA(p, v)
 
 ------------------------------------------------------------------------
 -- LEILAO
@@ -85,6 +86,6 @@ INICIAR_LEILAO(listaCompradores, valor, lance) =
 ------------------------------------------------------------------------
 -- ASSERTS
 ------------------------------------------------------------------------ 
-SISTEMA = ((AGENTES [|{|vender, comprar|}|] VENDAS) [|{|processar|}|] LEILOES)
+SISTEMA = ((AGENTES [|{|vender, comprar|}|] COMPRAS_E_VENDAS) [|{|processar|}|] LEILOES)
 assert SISTEMA :[deadlock free] 
 assert SISTEMA :[deterministic] 
