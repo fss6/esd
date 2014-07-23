@@ -2,10 +2,11 @@
 -- TIPOS E DADOS
 ------------------------------------------------------------------------
 
-N = 3
+N = 4
+
 ids = { 1..N }
-datatype produto =  notebook | tablet | celular
-valor = { 4, 8 }
+datatype produto =  notebook | tablet
+valor = { 2, 4 }
 
 ------------------------------------------------------------------------
 -- CANAIS
@@ -27,12 +28,14 @@ existeComprador(comprador, < c >^listaCompradores) =
 			existeComprador(comprador, listaCompradores)
 
 
+verificarLance(comprador, lance, valor) = if lance == valor then true else false 
+
+
 ------------------------------------------------------------------------
 -- AGENTE
 ------------------------------------------------------------------------
 
 AGENTE(id, produto, valor) = 
-					
 		vender!produto!valor -> AGENTE(id, produto, valor)
 	[]
 		comprar!id!produto -> AGENTE(id, produto, valor)
@@ -45,15 +48,12 @@ AGENTES = ||| id:ids, p:produto, v:valor @ AGENTE(id, p, v)
 ------------------------------------------------------------------------
 
 VENDA(produto, valor) = 
-								
 		vender?produto?valor -> VENDA(produto, valor)
 	[]
 		comprar?comprador?prod -> if( produto != prod ) then 
 								 	VENDA(produto, valor)
 								  else
 								 	processar!comprador -> VENDA(produto, valor)
-
-								 
 
 
 VENDAS = ||| p:produto, v:valor @ VENDA(p, v)
@@ -66,19 +66,27 @@ LEILAO(produto, valor, listaCompradores) =
 		processar?comprador -> if existeComprador(comprador, listaCompradores) then 
 							LEILAO(produto, valor, listaCompradores) 
 						  else
-						  	if( length(listaCompradores) == 3) then
+						  	if(length(listaCompradores) == 3) then
 								INICIAR_LEILAO(listaCompradores, valor, 0)
 							else
 								LEILAO(produto, valor, listaCompradores)
 		
 		
-		
+LEILOES = ||| p:produto, v:valor @ LEILAO(p, v, <>)
 
-INICIAR_LEILAO(listaCompradores, valor, lance) = SKIP
+------------------------------------------------------------------------
+-- INICIAR LEILAO
+------------------------------------------------------------------------
+		
+INICIAR_LEILAO(listaCompradores, valor, lance) = 
+		if verificarLance(head(listaCompradores), valor, lance+1) then 
+			SKIP 
+		else 
+			INICIAR_LEILAO(tail(listaCompradores) ^ <head(listaCompradores)>, valor, lance)
 
 ------------------------------------------------------------------------
 -- ASSERTS
 ------------------------------------------------------------------------ 
-
-assert AGENTES [|{|vender, comprar|}|] VENDAS :[deadlock free] 
-assert AGENTES [|{|vender, comprar|}|] VENDAS :[deterministic] 
+SISTEMA = ((AGENTES [|{|vender, comprar|}|] VENDAS) [|{|processar|}|] LEILOES)
+assert SISTEMA :[deadlock free] 
+assert SISTEMA :[deterministic] 
