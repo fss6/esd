@@ -10,8 +10,21 @@ valor = { 4, 8 }
 -- CANAIS
 ------------------------------------------------------------------------
 
-channel vender : ids.produto.valor
+channel vender : produto.valor
 channel comprar : ids.produto
+channel processar :ids
+
+------------------------------------------------------------------------
+-- FUNCOES
+------------------------------------------------------------------------
+
+existeComprador(comprador, <>) = false
+existeComprador(comprador, < c >^listaCompradores) = 
+		if comprador == c then 
+			true 
+		else 
+			existeComprador(comprador, listaCompradores)
+
 
 ------------------------------------------------------------------------
 -- AGENTE
@@ -19,39 +32,52 @@ channel comprar : ids.produto
 
 AGENTE(id, produto, valor) = 
 					
-					vender!id!produto!valor -> AGENTE(id, produto, valor)
-				[]
-
-					comprar!id!produto -> AGENTE(id, produto, valor)
+		vender!produto!valor -> AGENTE(id, produto, valor)
+	[]
+		comprar!id!produto -> AGENTE(id, produto, valor)
 
 
 AGENTES = ||| id:ids, p:produto, v:valor @ AGENTE(id, p, v) 
+
 ------------------------------------------------------------------------
--- VENDA_ON_LINE
+-- VENDAS
 ------------------------------------------------------------------------
 
 VENDA(produto, valor) = 
 								
-								vender?vendedor?produto?valor -> VENDA(produto, valor)
-							[]
-								comprar?comprador?prod -> if( produto != prod ) then 
+		vender?produto?valor -> VENDA(produto, valor)
+	[]
+		comprar?comprador?prod -> if( produto != prod ) then 
+								 	VENDA(produto, valor)
+								  else
+								 	processar!comprador -> VENDA(produto, valor)
 
-															VENDA(produto, valor)
-
-														  else 
-
-														  	LEILAO(produto, valor, {comprador})
-
-VENDAS_ON_LINE = ||| p:produto, v:valor @ VENDA(p, v)
+								 
 
 
-LEILAO(produto, valor, compradores) = SKIP
-
-
-
-assert AGENTES [|{|vender, comprar|}|] VENDAS_ON_LINE  :[deadlock free] 
-assert AGENTES [|{|vender, comprar|}|] VENDAS_ON_LINE  :[deterministic] 
+VENDAS = ||| p:produto, v:valor @ VENDA(p, v)
 
 ------------------------------------------------------------------------
--- SYNC
+-- LEILAO
+------------------------------------------------------------------------
+
+LEILAO(produto, valor, listaCompradores) =    
+		processar?comprador -> if existeComprador(comprador, listaCompradores) then 
+							LEILAO(produto, valor, listaCompradores) 
+						  else
+						  	if( length(listaCompradores) == 3) then
+								INICIAR_LEILAO(listaCompradores, valor, 0)
+							else
+								LEILAO(produto, valor, listaCompradores)
+		
+		
+		
+
+INICIAR_LEILAO(listaCompradores, valor, lance) = SKIP
+
+------------------------------------------------------------------------
+-- ASSERTS
 ------------------------------------------------------------------------ 
+
+assert AGENTES [|{|vender, comprar|}|] VENDAS :[deadlock free] 
+assert AGENTES [|{|vender, comprar|}|] VENDAS :[deterministic] 
