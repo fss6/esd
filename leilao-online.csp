@@ -20,14 +20,24 @@ channel processar :ids
 -- COMPRADORES E VENDEDORES
 ------------------------------------------------------------------------
 
-COMPRADOR(id, produto) = comprar!id!produto -> COMPRADOR(id, produto)
-COMPRADORES = ||| comprador:ids, p:produto, v:valor @ COMPRADOR( comprador, p) 
+COMPRADOR(id, produto) = 
+		if produto == Nil then 
+			SKIP 
+		else 
+			comprar!id!produto -> COMPRADOR(id, produto)
+
+COMPRADORES = ||| comprador:ids, p:produto @ COMPRADOR(comprador, p) 
 
 assert COMPRADORES :[deadlock free] 
 assert COMPRADORES :[deterministic] 
 
 
-VENDEDOR(id, produto, valor) = vender!id!produto!valor -> VENDEDOR(id, produto, valor)		
+VENDEDOR(id, produto, valor) = 
+		if produto == Nil then
+			SKIP
+		else
+			vender!id!produto!valor -> VENDEDOR(id, produto, valor)	
+
 VENDEDORES = ||| id:ids, p:produto, v:valor @ VENDEDOR(id, p, v)
 
 assert VENDEDORES :[deadlock free] 
@@ -47,26 +57,29 @@ existeComprador(comprador, < c >^listaCompradores) =
 
 LEILAO(vendedor, produto, valor, listaCompradores) =
 
-		vender?vend?prod?val -> (if not member(vend, ids) then 
-									LEILAO(vend, prod, val, listaCompradores)
-								 else
-									LEILAO(vendedor, produto, valor, listaCompradores))
+		vender?vend?prod?val -> (
+									if produto == Nil then
+										LEILAO(vend, prod, val, listaCompradores)
+									else
+										LEILAO(vendedor, produto, valor, listaCompradores)
+								)
 
 	[]
 
-		comprar?comprador?prod -> (if existeComprador(comprador, listaCompradores) then 
-									LEILAO(vendedor, produto, valor, listaCompradores) 
-						  		  else
-						  			if(length(listaCompradores) == 3) then
-										INICIAR_LEILAO(listaCompradores, valor, 0)
-									else
-										LEILAO(vendedor, produto, valor, listaCompradores))
-		
-		
+		comprar?comprador?prod -> (	
+									if existeComprador(comprador, listaCompradores) then 
+										LEILAO(vendedor, produto, valor, listaCompradores) 
+						  		  	else
+						  		  		if produto == prod then
+						  		  			LEILAO(vendedor, produto, valor, listaCompradores^<comprador>)
+						  		  		else
+						  		  			LEILAO(vendedor, produto, valor, listaCompradores)
+						  		  )								
+						  		  	
 LEILOES = ||| p:produto, v:valor @ LEILAO(0, Nil, 0, <>)
 
-assert LEILOES :[deadlock free] 
-assert LEILOES :[deterministic] 
+assert LEILOES [|{|vender|}|] VENDEDORES :[deadlock free] 
+assert LEILOES [|{|comprar|}|] COMPRADORES :[deterministic] 
 
 ------------------------------------------------------------------------
 -- INICIAR LEILAO
