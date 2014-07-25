@@ -1,11 +1,12 @@
 ------------------------------------------------------------------------
 -- TIPOS E DADOS
 ------------------------------------------------------------------------
-N = 2
+N = 3
+V = 4
 id_comprador = { 1..(N+1) }
 id_vendedor = { 1..N }
 datatype produto = notebook | tablet | Nil
-valor = { 4 }
+valor = { V }
 
 ------------------------------------------------------------------------
 -- CANAIS
@@ -13,7 +14,8 @@ valor = { 4 }
 
 channel vender : id_vendedor.produto.valor
 channel comprar : id_comprador.produto
-channel darLance : id_comprador
+channel getUltimoLance : valor
+channel darLance
 
 ------------------------------------------------------------------------
 -- COMPRADOR(ES) E VENDEDOR(ES)
@@ -46,75 +48,63 @@ assert VENDEDORES :[deterministic]
 -- LEILAO
 ------------------------------------------------------------------------
 
-estaNoLeilao(comprador, <>) = false
-estaNoLeilao(comprador, < c >^listaCompradores) = 
-		if comprador == c then 
-			True 
-		else 
-			estaNoLeilao(comprador, listaCompradores)
-
-
 queroComprarProduto(pv, pc) = 
 		if pv == pc then 
 			True 
 		else 
 			False
 
-addComprador(pv, pc, comprador, listaCompradores) = 
-		if queroComprarProduto(pv, pc) then
-			if not estaNoLeilao(comprador, listaCompradores) then
-				if length(listaCompradores) < N then
-					True
-				else
-					False
-			else
-				False
-		else
-			False
-
-
-LEILAO(vendedor, produto, valor, listaCompradores, ultimoLance) =
-
-		vender?vend?prod?val -> (
-									if produto == Nil then
-										LEILAO(vend, prod, val, listaCompradores, ultimoLance)
-									else
-										LEILAO(vendedor, produto, valor, listaCompradores, ultimoLance)
-								)
-	[]
-		comprar?comprador?prod -> (
-									if addComprador(produto, prod, comprador, listaCompradores) then
-										LEILAO(vendedor, produto, valor, listaCompradores^<comprador>, ultimoLance)
-									else
-										LEILAO(vendedor, produto, valor, listaCompradores, ultimoLance)
-						  		  )
-						  		  	
-LEILOES = ||| p:produto @ LEILAO(0, Nil, 0, <>, 0)
-
-assert LEILOES [|{|vender|}|] VENDEDORES :[deadlock free]
-assert LEILOES [|{|vender|}|] VENDEDORES :[deterministic]
-
-assert LEILOES [|{|comprar|}|] COMPRADORES :[deterministic] 
-assert LEILOES [|{|comprar|}|] COMPRADORES :[deadlock free]
-
-assert ((LEILOES [|{|vender|}|] VENDEDORES) [|{|comprar, darLance|}|] COMPRADORES) :[deadlock free]
-assert ((LEILOES [|{|vender|}|] VENDEDORES) [|{|comprar, darLance|}|] COMPRADORES) :[deterministic]
-
-------------------------------------------------------------------------
--- INICIAR LEILAO
-------------------------------------------------------------------------
-
-verificarLance(comprador, lance, valor) = if lance == valor then true else false 
-
-INICIAR_LEILAO(listaCompradores, valor, lance) = 
-		if verificarLance(head(listaCompradores), valor, lance+1) then 
-			SKIP 
+verificarLance(lance, valorDoProduto) = 
+		if lance == valorDoProduto then 
+			True 
 		else 
-			INICIAR_LEILAO(tail(listaCompradores) ^ <head(listaCompradores)>, valor, lance)
+			False 
+
+LEILAO(id, produto, valorDoProduto) =
+		vender?id_?produto_?valor -> 
+			(
+				if produto == Nil then
+					LEILAO(id_, produto_, valor)
+				else
+					LEILAO(id, produto, valorDoProduto)
+			)
+	[]
+		comprar?comprador?prod -> 
+			(
+				if queroComprarProduto(produto, prod) then
+					darLance -> getUltimoLance?lance ->
+					if verificarLance(valorDoProduto, lance) then
+						SKIP
+					else
+						LEILAO(id, produto, valorDoProduto)
+				else
+					LEILAO(id, produto, valorDoProduto)
+			)
+						  		  	
+LEILOES = ||| id:id_vendedor @ LEILAO(id, Nil, 0)
+
+assert LEILOES :[deadlock free]
+assert LEILOES :[deterministic]
+
+STATUS(lance) =
+		getUltimoLance?lance -> STATUS(lance)
+	[]
+		darLance -> if lance < V then
+						STATUS(lance+1)
+					else
+						STATUS(lance)
+
+assert STATUS(0) :[deadlock free]
+assert STATUS(0) :[deterministic]
 
 ------------------------------------------------------------------------
 -- ASSERTS
 ------------------------------------------------------------------------ 
---SISTEMA = ((AGENTES [|{|vender, comprar|}|] COMPRAS_E_VENDAS) [|{|processar|}|] LEILOES)
---assert SISTEMA :[deadlock free] 
---assert SISTEMA :[deterministic] 
+
+LS = LEILOES [|{|getUltimoLance, darLance|}|] STATUS(0)
+LS_C = LS [{|comprar, darLance|}||{|comprar|}] COMPRADORES
+LS_C_V = LS_C [{|comprar|}||{|comprar|}] VENDEDORES
+SISTEMA = LS_C_V
+
+assert SISTEMA :[deadlock free] 
+assert SISTEMA :[deterministic] 
