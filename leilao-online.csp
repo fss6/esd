@@ -5,19 +5,36 @@
 N = 3
 
 ids = { 1..N }
-datatype produto =  notebook | tablet
+datatype produto = notebook | tablet | Nil
 valor = { 2, 4 }
 
 ------------------------------------------------------------------------
 -- CANAIS
 ------------------------------------------------------------------------
 
-channel vender : produto.valor
+channel vender : ids.produto.valor
 channel comprar : ids.produto
 channel processar :ids
 
 ------------------------------------------------------------------------
--- FUNCOES
+-- COMPRADORES E VENDEDORES
+------------------------------------------------------------------------
+
+COMPRADOR(id, produto) = comprar!id!produto -> COMPRADOR(id, produto)
+COMPRADORES = ||| comprador:ids, p:produto, v:valor @ COMPRADOR( comprador, p) 
+
+assert COMPRADORES :[deadlock free] 
+assert COMPRADORES :[deterministic] 
+
+
+VENDEDOR(id, produto, valor) = vender!id!produto!valor -> VENDEDOR(id, produto, valor)		
+VENDEDORES = ||| id:ids, p:produto, v:valor @ VENDEDOR(id, p, v)
+
+assert VENDEDORES :[deadlock free] 
+assert VENDEDORES :[deterministic] 
+
+------------------------------------------------------------------------
+-- LEILAO
 ------------------------------------------------------------------------
 
 existeComprador(comprador, <>) = false
@@ -28,56 +45,35 @@ existeComprador(comprador, < c >^listaCompradores) =
 			existeComprador(comprador, listaCompradores)
 
 
-verificarLance(comprador, lance, valor) = if lance == valor then true else false 
+LEILAO(vendedor, produto, valor, listaCompradores) =
 
+		vender?vend?prod?val -> (if not member(vend, ids) then 
+									LEILAO(vend, prod, val, listaCompradores)
+								 else
+									LEILAO(vendedor, produto, valor, listaCompradores))
 
-------------------------------------------------------------------------
--- AGENTE
-------------------------------------------------------------------------
-
-COMPRADOR(id, produto) = comprar!id!produto -> COMPRADOR(id, produto)
-COMPRADORES = ||| comprador:ids, p:produto, v:valor @ COMPRADOR( comprador, p) 
-
-VENDEDOR(id, produto, valor) = vender!produto!valor -> VENDEDOR(id, produto, valor)		
-VENDEDORES = ||| id:ids, p:produto, v:valor @ VENDEDOR(id, p, v)
-
-
-
-------------------------------------------------------------------------
--- VENDAS
-------------------------------------------------------------------------
-
-COMPRA_E_VENDA(produto, valor) = 
-		vender?produto?valor -> COMPRA_E_VENDA(produto, valor)
 	[]
-		comprar?comprador?prod -> if( produto != prod ) then 
-								 	COMPRA_E_VENDA(produto, valor)
-								  else
-								 	processar!comprador -> COMPRA_E_VENDA(produto, valor)
 
-
-COMPRAS_E_VENDAS = ||| p:produto, v:valor @ COMPRA_E_VENDA(p, v)
-
-------------------------------------------------------------------------
--- LEILAO
-------------------------------------------------------------------------
-
-LEILAO(produto, valor, listaCompradores) =    
-		processar?comprador -> if existeComprador(comprador, listaCompradores) then 
-							LEILAO(produto, valor, listaCompradores) 
-						  else
-						  	if(length(listaCompradores) == 3) then
-								INICIAR_LEILAO(listaCompradores, valor, 0)
-							else
-								LEILAO(produto, valor, listaCompradores)
+		comprar?comprador?prod -> (if existeComprador(comprador, listaCompradores) then 
+									LEILAO(vendedor, produto, valor, listaCompradores) 
+						  		  else
+						  			if(length(listaCompradores) == 3) then
+										INICIAR_LEILAO(listaCompradores, valor, 0)
+									else
+										LEILAO(vendedor, produto, valor, listaCompradores))
 		
 		
-LEILOES = ||| p:produto, v:valor @ LEILAO(p, v, <>)
+LEILOES = ||| p:produto, v:valor @ LEILAO(0, Nil, 0, <>)
+
+assert LEILOES :[deadlock free] 
+assert LEILOES :[deterministic] 
 
 ------------------------------------------------------------------------
 -- INICIAR LEILAO
 ------------------------------------------------------------------------
-		
+
+verificarLance(comprador, lance, valor) = if lance == valor then true else false 
+
 INICIAR_LEILAO(listaCompradores, valor, lance) = 
 		if verificarLance(head(listaCompradores), valor, lance+1) then 
 			SKIP 
