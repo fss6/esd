@@ -15,7 +15,7 @@ valor = { V }
 channel vender : id_vendedor.produto.valor
 channel comprar : id_comprador.produto
 channel getUltimoLance : valor
-channel darLance
+channel efetuarLance
 
 ------------------------------------------------------------------------
 -- COMPRADOR(ES) E VENDEDOR(ES)
@@ -72,7 +72,7 @@ LEILAO(id, produto, valorDoProduto) =
 		comprar?comprador?prod -> 
 			(
 				if queroComprarProduto(produto, prod) then
-					darLance -> getUltimoLance?lance ->
+					efetuarLance -> getUltimoLance?lance ->
 					if verificarLance(valorDoProduto, lance) then
 						SKIP
 					else
@@ -89,7 +89,7 @@ assert LEILOES :[deterministic]
 STATUS(lance) =
 		getUltimoLance?lance -> STATUS(lance)
 	[]
-		darLance -> if lance < V then
+		efetuarLance -> if lance < V then
 						STATUS(lance+1)
 					else
 						STATUS(lance)
@@ -101,8 +101,8 @@ assert STATUS(0) :[deterministic]
 -- ASSERTS
 ------------------------------------------------------------------------ 
 
-LS = LEILOES [|{|getUltimoLance, darLance|}|] STATUS(0)
-LS_C = LS [{|comprar, darLance|}||{|comprar|}] COMPRADORES
+LS = LEILOES [|{|getUltimoLance, efetuarLance|}|] STATUS(0)
+LS_C = LS [{|comprar, efetuarLance|}||{|comprar|}] COMPRADORES
 LS_C_V = LS_C [{|comprar|}||{|comprar|}] VENDEDORES
 SISTEMA = LS_C_V
 
