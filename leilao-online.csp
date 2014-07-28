@@ -2,30 +2,27 @@
 -- TIPOS E DADOS
 ------------------------------------------------------------------------
 N = 3
-V = 4
-id_comprador = { 1..(N+1) }
+id_comprador = { 1..(N+2) }
 id_vendedor = { 1..N }
-datatype produto = notebook | tablet | Nil
-valor = { V }
+datatype produto = notebook | tablet | impressora
 
 ------------------------------------------------------------------------
 -- CANAIS
 ------------------------------------------------------------------------
 
-channel vender : id_vendedor.produto.valor
+channel vender, abrirLeilao : id_vendedor.produto
 channel comprar : id_comprador.produto
-channel getUltimoLance : valor
-channel efetuarLance
+channel cadastrarComprador, efetuarLance, registrarLance : id_comprador.produto
+channel encerrarLeilao : produto
 
 ------------------------------------------------------------------------
 -- COMPRADOR(ES) E VENDEDOR(ES)
 ------------------------------------------------------------------------
 
 COMPRADOR(id, produto) = 
-		if produto == Nil then 
-			SKIP 
-		else 
-			comprar!id!produto -> COMPRADOR(id, produto)
+		cadastrarComprador!id!produto -> COMPRADOR(id, produto)
+	[]
+		efetuarLance!id!produto -> COMPRADOR(id, produto)
 
 COMPRADORES = ||| comprador:id_comprador, p:produto @ COMPRADOR(comprador, p) 
 
@@ -33,13 +30,12 @@ assert COMPRADORES :[deadlock free]
 assert COMPRADORES :[deterministic] 
 
 
-VENDEDOR(id, produto, valor) = 
-		if produto == Nil then
-			SKIP
-		else
-			vender!id!produto!valor -> VENDEDOR(id, produto, valor)	
+VENDEDOR(id, produto) = 
+		vender!id!produto -> VENDEDOR(id, produto)	
 
-VENDEDORES = ||| id:id_vendedor, p:produto, v:valor @ VENDEDOR(id, p, v)
+VENDEDORES = ||| id:id_vendedor, p:produto @ VENDEDOR(id, p)
+
+--{ p_ | p_ <- produto, p_ != Nil}
 
 assert VENDEDORES :[deadlock free] 
 assert VENDEDORES :[deterministic] 
@@ -60,51 +56,37 @@ verificarLance(lance, valorDoProduto) =
 		else 
 			False 
 
-LEILAO(id, produto, valorDoProduto) =
-		vender?id_?produto_?valor -> 
-			(
-				if produto == Nil then
-					LEILAO(id_, produto_, valor)
-				else
-					LEILAO(id, produto, valorDoProduto)
-			)
+SERVIDOR = 
+		vender?vendedor?produto -> abrirLeilao!vendedor!produto -> SERVIDOR
 	[]
-		comprar?comprador?prod -> 
-			(
-				if queroComprarProduto(produto, prod) then
-					efetuarLance -> getUltimoLance?lance ->
-					if verificarLance(valorDoProduto, lance) then
-						SKIP
-					else
-						LEILAO(id, produto, valorDoProduto)
-				else
-					LEILAO(id, produto, valorDoProduto)
-			)
-						  		  	
-LEILOES = ||| id:id_vendedor @ LEILAO(id, Nil, 0)
-
-assert LEILOES :[deadlock free]
-assert LEILOES :[deterministic]
-
-STATUS(lance) =
-		getUltimoLance?lance -> STATUS(lance)
+		comprar?comprador?produto -> cadastrarComprador!comprador!produto -> SERVIDOR
 	[]
-		efetuarLance -> if lance < V then
-						STATUS(lance+1)
-					else
-						STATUS(lance)
+		efetuarLance?comprador?produto -> registrarLance!comprador!produto ->
+		((encerrarLeilao!produto -> SERVIDOR) |~| SERVIDOR)
 
-assert STATUS(0) :[deadlock free]
-assert STATUS(0) :[deterministic]
+			
+assert SERVIDOR :[deadlock free] 
+assert SERVIDOR :[deterministic] 
+
+produtoUnico(produto, <>)             = True
+produtoUnico(produto, <(v,p)>^lista) = if produto == p then 
+											False 
+										 else 
+											produtoUnico(produto, lista)
+
+BUFFER(leiloes) = 
+		abrirLeilao?vendedor?produto:{ p | p <- produto, produtoUnico( p, leiloes)} -> BUFFER(leiloes^<(vendedor, produto)>)
+	[]
+		cadastrarComprador?comprador?produto -> BUFFER(leiloes)
+	[] 
+		registrarLance?comprador?produto -> BUFFER(leiloes)
+	[]
+		encerrarLeilao?produto -> BUFFER(leiloes)
+
+assert BUFFER(<>) :[deadlock free] 
+assert BUFFER(<>) :[deterministic] 		
 
 ------------------------------------------------------------------------
 -- ASSERTS
 ------------------------------------------------------------------------ 
 
-LS = LEILOES [|{|getUltimoLance, efetuarLance|}|] STATUS(0)
-LS_C = LS [{|comprar, efetuarLance|}||{|comprar|}] COMPRADORES
-LS_C_V = LS_C [{|comprar|}||{|comprar|}] VENDEDORES
-SISTEMA = LS_C_V
-
-assert SISTEMA :[deadlock free] 
-assert SISTEMA :[deterministic] 
