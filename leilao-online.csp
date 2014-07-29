@@ -54,19 +54,19 @@ assert INTERFACE :[deterministic]
 ------------------------------------------------------------------------
 -- SERVIDOR
 ------------------------------------------------------------------------
--- "Verifica se o um dado produto existe em uma determinada sequencia."
+-- "Verifica se o um dado produto existe em um determinado conjunto."
 existeProduto(produto, C) = 
 	if card(verificacaoProduto(produto, C)) > 0 then True else False
 
 verificacaoProduto(produto, C) = { p | (v,p) <- C, p == produto}
 ------------------------------------------------------------------------
--- "Verifica se existe a tupla (comprador,produto) em uma dada sequencia."
+-- "Verifica se existe a tupla (comprador,produto) em um dado conjunto."
 existeCompradorProduto(comprador,produto,C) = 
 	if card(verificacaoCompradorProduto(comprador,produto, C)) > 0 then True else False
 
 verificacaoCompradorProduto(comprador,produto,C) = { (c,p) | (c,p) <- C, (c,p) == (comprador,produto)}
 ------------------------------------------------------------------------
--- "Remove um dado produto de uma determinada Sequencia."
+-- "Remove um dado produto de um determinado conjunto."
 remover(produto,C) =
 		efetuarRemocao(produto, C)
 
