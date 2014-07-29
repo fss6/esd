@@ -41,22 +41,6 @@ assert VENDEDORES :[deterministic]
 -- INTERFACE
 ------------------------------------------------------------------------
 
-existeProduto(produto, lista) = 
-	if card(verificacaoProduto(produto, set(lista))) > 0 then True else False
-
-verificacaoProduto(produto, C) = { p | (v,p) <- C, p == produto}
-
-existeCompradorProduto(comprador,produto,lista) = 
-	if card(verificacaoCompradorProduto(comprador,produto, set(lista))) > 0 then True else False
-
-verificacaoCompradorProduto(comprador,produto,C) = { (c,p) | (c,p) <- C, (c,p) == (comprador,produto)}
-
-remover(produto,S) =
-		seq(efetuarRemocao(produto, set(S)))	
-
-efetuarRemocao(produto, C) =
-		{(id,p) | (id,p) <- C, p != produto}
-
 INTERFACE = 
 		vender?vendedor?produto -> iniciarLeilao!vendedor!produto -> INTERFACE
 	[]
@@ -66,6 +50,28 @@ INTERFACE =
 			
 assert INTERFACE :[deadlock free] 
 assert INTERFACE :[deterministic] 
+
+------------------------------------------------------------------------
+-- SERVIDOR
+------------------------------------------------------------------------
+-- "Verifica se o um dado produto existe em uma determinada sequencia."
+existeProduto(produto, S) = 
+	if card(verificacaoProduto(produto, set(S))) > 0 then True else False
+
+verificacaoProduto(produto, C) = { p | (v,p) <- C, p == produto}
+------------------------------------------------------------------------
+-- "Verifica se existe a tupla (comprador,produto) em uma dada sequencia."
+existeCompradorProduto(comprador,produto,S) = 
+	if card(verificacaoCompradorProduto(comprador,produto, set(S))) > 0 then True else False
+
+verificacaoCompradorProduto(comprador,produto,C) = { (c,p) | (c,p) <- C, (c,p) == (comprador,produto)}
+------------------------------------------------------------------------
+-- "Remove um dado produto de uma determinada Sequencia."
+remover(produto,S) =
+		seq(efetuarRemocao(produto, set(S)))	
+
+efetuarRemocao(produto, C) =
+		{(id,p) | (id,p) <- C, p != produto}
 
 
 SERVIDOR(leiloes, compradores) = 
@@ -95,7 +101,7 @@ assert SERVIDOR(<>,<>) :[deadlock free]
 assert SERVIDOR(<>,<>) :[deterministic] 		
 
 ------------------------------------------------------------------------
--- ASSERTS
+-- ASSERTS SISTEMA
 ------------------------------------------------------------------------ 
 
 SI = SERVIDOR(<>,<>) [|{|iniciarLeilao, cadastrar, registrarLance|}|] INTERFACE
