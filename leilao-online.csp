@@ -1,9 +1,9 @@
 ------------------------------------------------------------------------
 -- TIPOS / DADOS
 ------------------------------------------------------------------------
-N = 2
+N = 3
 id_vendedor = { 1..N }
-id_comprador = { 1..(N+1) }
+id_comprador = { 1..N }
 datatype produto = notebook | tablet
 
 ------------------------------------------------------------------------
@@ -55,20 +55,20 @@ assert INTERFACE :[deterministic]
 -- SERVIDOR
 ------------------------------------------------------------------------
 -- "Verifica se o um dado produto existe em uma determinada sequencia."
-existeProduto(produto, S) = 
-	if card(verificacaoProduto(produto, set(S))) > 0 then True else False
+existeProduto(produto, C) = 
+	if card(verificacaoProduto(produto, C)) > 0 then True else False
 
 verificacaoProduto(produto, C) = { p | (v,p) <- C, p == produto}
 ------------------------------------------------------------------------
 -- "Verifica se existe a tupla (comprador,produto) em uma dada sequencia."
-existeCompradorProduto(comprador,produto,S) = 
-	if card(verificacaoCompradorProduto(comprador,produto, set(S))) > 0 then True else False
+existeCompradorProduto(comprador,produto,C) = 
+	if card(verificacaoCompradorProduto(comprador,produto, C)) > 0 then True else False
 
 verificacaoCompradorProduto(comprador,produto,C) = { (c,p) | (c,p) <- C, (c,p) == (comprador,produto)}
 ------------------------------------------------------------------------
 -- "Remove um dado produto de uma determinada Sequencia."
-remover(produto,S) =
-		seq(efetuarRemocao(produto, set(S)))	
+remover(produto,C) =
+		efetuarRemocao(produto, C)
 
 efetuarRemocao(produto, C) =
 		{(id,p) | (id,p) <- C, p != produto}
@@ -77,14 +77,14 @@ efetuarRemocao(produto, C) =
 SERVIDOR(leiloes, compradores) = 
 		(iniciarLeilao?vendedor?produto ->
 			if not existeProduto(produto, leiloes) then 
-				SERVIDOR(leiloes^<(vendedor, produto)>, compradores)
+				SERVIDOR(union(leiloes,{(vendedor, produto)}), compradores)
 			else
 				SERVIDOR(leiloes, compradores)
 		)
 	[] 
 		(cadastrar?comprador?produto -> 	
 			if not existeCompradorProduto(comprador,produto,compradores) then 
-				cadastrarComprador -> SERVIDOR(leiloes, compradores^<(comprador, produto)>)
+				cadastrarComprador -> SERVIDOR(leiloes, union(compradores,{(comprador, produto)}))
 			else
 				SERVIDOR(leiloes, compradores)
 		)	
@@ -97,14 +97,14 @@ SERVIDOR(leiloes, compradores) =
 				SERVIDOR(leiloes, compradores)
 		)
 
-assert SERVIDOR(<>,<>) :[deadlock free] 
-assert SERVIDOR(<>,<>) :[deterministic] 		
+assert SERVIDOR({},{}) :[deadlock free] 
+assert SERVIDOR({},{}) :[deterministic] 		
 
 ------------------------------------------------------------------------
 -- ASSERTS SISTEMA
 ------------------------------------------------------------------------ 
 
-SI = SERVIDOR(<>,<>) [|{|iniciarLeilao, cadastrar, registrarLance|}|] INTERFACE
+SI = SERVIDOR({},{}) [|{|iniciarLeilao, cadastrar, registrarLance|}|] INTERFACE
 SIC =  SI [|{|comprar, efetuarLance|}|] COMPRADORES
 SICV = SIC [|{|vender|}|] VENDEDORES
 assert SICV :[deadlock free] 
@@ -117,14 +117,14 @@ assert SICV :[deterministic]
 S2(leiloes, compradores) = 
 		(iniciarLeilao?vendedor?produto ->
 			if not existeProduto(produto, leiloes) then 
-				S2(leiloes^<(vendedor, produto)>, compradores)
+				S2(union(leiloes,{(vendedor, produto)}), compradores)
 			else
 				S2(leiloes, compradores)
 		)
 	[] 
 		(cadastrar?comprador?produto -> 	
 			if not existeCompradorProduto(comprador,produto,compradores) then 
-				cadastrarComprador -> S2(leiloes, compradores^<(comprador, produto)>)
+				cadastrarComprador -> S2(leiloes, union(compradores,{(comprador, produto)}))
 			else
 				S2(leiloes, compradores)
 		)	
@@ -137,8 +137,8 @@ S2(leiloes, compradores) =
 				S2(leiloes, compradores)
 		)
 
-assert S2(<>,<>) :[deadlock free] 
-assert S2(<>,<>) :[deterministic]
-assert S2(<>,<>) [T= SERVIDOR(<>,<>)
-assert SERVIDOR(<>,<>) [T= S2(<>,<>)
+assert S2({},{}) :[deadlock free] 
+assert S2({},{}) :[deterministic]
+assert S2({},{}) [T= SERVIDOR({},{})
+assert SERVIDOR({},{}) [T= S2({},{})
 
