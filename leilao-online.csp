@@ -1,20 +1,18 @@
 ------------------------------------------------------------------------
 -- TIPOS / DADOS
 ------------------------------------------------------------------------
-N = 3
+N = 2
 id_vendedor = { 1..N }
-id_comprador = { 1..(N+3) }
-datatype produto = notebook | tablet | impressora | celular
+id_comprador = { 1..(N+1) }
+datatype produto = notebook | tablet
 
 ------------------------------------------------------------------------
 -- CANAIS / EVENTOS
 ------------------------------------------------------------------------
 
 channel vender, iniciarLeilao : id_vendedor.produto
-channel comprar, efetuarLance : id_comprador.produto
-channel verificarProduto, registrarLance : id_comprador.produto
-channel encerrarLeilao : produto
-channel efetuarLance
+channel comprar, cadastrar, efetuarLance, registrarLance : id_comprador.produto
+channel encerrarLeilao, cadastrarComprador, validarLance
 
 ------------------------------------------------------------------------
 -- COMPRADOR(ES) / VENDEDOR(ES)
@@ -22,6 +20,8 @@ channel efetuarLance
 
 COMPRADOR(id, produto) = 
 		comprar!id!produto -> COMPRADOR(id, produto)
+	[]
+		efetuarLance!id!produto -> COMPRADOR(id, produto)
 
 COMPRADORES = ||| comprador:id_comprador, p:produto @ COMPRADOR(comprador, p) 
 
@@ -42,40 +42,97 @@ assert VENDEDORES :[deterministic]
 ------------------------------------------------------------------------
 
 existeProduto(produto, lista) = 
-	if card(verificacao(produto, set(lista))) > 0 then True else False
+	if card(verificacaoProduto(produto, set(lista))) > 0 then True else False
 
-verificacao(produto, C) = { p | (v,p) <- C, p == produto}
+verificacaoProduto(produto, C) = { p | (v,p) <- C, p == produto}
 
+existeCompradorProduto(comprador,produto,lista) = 
+	if card(verificacaoCompradorProduto(comprador,produto, set(lista))) > 0 then True else False
+
+verificacaoCompradorProduto(comprador,produto,C) = { (c,p) | (c,p) <- C, (c,p) == (comprador,produto)}
+
+remover(produto,S) =
+		seq(efetuarRemocao(produto, set(S)))	
+
+efetuarRemocao(produto, C) =
+		{(id,p) | (id,p) <- C, p != produto}
 
 INTERFACE = 
 		vender?vendedor?produto -> iniciarLeilao!vendedor!produto -> INTERFACE
 	[]
-		comprar?comprador?produto -> verificarProduto!comprador!produto -> INTERFACE
+		comprar?comprador?produto -> cadastrar!comprador!produto -> INTERFACE
+	[]
+		efetuarLance?comprador?produto -> registrarLance!comprador!produto -> INTERFACE
 			
 assert INTERFACE :[deadlock free] 
 assert INTERFACE :[deterministic] 
 
 
-SERVIDOR(leiloes) = 
+SERVIDOR(leiloes, compradores) = 
 		(iniciarLeilao?vendedor?produto ->
 			if not existeProduto(produto, leiloes) then 
-				SERVIDOR(leiloes^<(vendedor, produto)>)
+				SERVIDOR(leiloes^<(vendedor, produto)>, compradores)
 			else
-				SERVIDOR(leiloes)
+				SERVIDOR(leiloes, compradores)
 		)
 	[] 
-		verificarProduto?comprador?produto -> 	
-			if existeProduto(produto, leiloes) then
-				SERVIDOR(leiloes)
+		(cadastrar?comprador?produto -> 	
+			if not existeCompradorProduto(comprador,produto,compradores) then 
+				cadastrarComprador -> SERVIDOR(leiloes, compradores^<(comprador, produto)>)
 			else
-				SERVIDOR(leiloes)
+				SERVIDOR(leiloes, compradores)
+		)	
 	[]
-		encerrarLeilao?produto -> SERVIDOR(leiloes)
+		(registrarLance?comprador?produto ->
+			if existeCompradorProduto(comprador,produto,compradores) then 
+				validarLance -> ( SERVIDOR(leiloes, compradores)
+				|~|	encerrarLeilao -> SERVIDOR(remover(produto,leiloes),remover(produto,compradores)))
+			else
+				SERVIDOR(leiloes, compradores)
+		)
 
-assert SERVIDOR(<>) :[deadlock free] 
-assert SERVIDOR(<>) :[deterministic] 		
+assert SERVIDOR(<>,<>) :[deadlock free] 
+assert SERVIDOR(<>,<>) :[deterministic] 		
 
 ------------------------------------------------------------------------
 -- ASSERTS
 ------------------------------------------------------------------------ 
+
+SI = SERVIDOR(<>,<>) [|{|iniciarLeilao, cadastrar, registrarLance|}|] INTERFACE
+SIC =  SI [|{|comprar, efetuarLance|}|] COMPRADORES
+SICV = SIC [|{|vender|}|] VENDEDORES
+assert SICV :[deadlock free] 
+assert SICV :[deterministic] 
+
+------------------------------------------------------------------------
+-- REFINAMENTO
+------------------------------------------------------------------------ 
+
+S2(leiloes, compradores) = 
+		(iniciarLeilao?vendedor?produto ->
+			if not existeProduto(produto, leiloes) then 
+				S2(leiloes^<(vendedor, produto)>, compradores)
+			else
+				S2(leiloes, compradores)
+		)
+	[] 
+		(cadastrar?comprador?produto -> 	
+			if not existeCompradorProduto(comprador,produto,compradores) then 
+				cadastrarComprador -> S2(leiloes, compradores^<(comprador, produto)>)
+			else
+				S2(leiloes, compradores)
+		)	
+	[]
+		(registrarLance?comprador?produto ->
+			if existeCompradorProduto(comprador,produto,compradores) then 
+				validarLance -> ( S2(leiloes, compradores)
+				[]	encerrarLeilao -> S2(remover(produto,leiloes),remover(produto,compradores)))
+			else
+				S2(leiloes, compradores)
+		)
+
+assert S2(<>,<>) :[deadlock free] 
+assert S2(<>,<>) :[deterministic]
+assert S2(<>,<>) [T= SERVIDOR(<>,<>)
+assert SERVIDOR(<>,<>) [T= S2(<>,<>)
 
