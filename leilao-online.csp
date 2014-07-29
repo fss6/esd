@@ -1,28 +1,27 @@
 ------------------------------------------------------------------------
--- TIPOS E DADOS
+-- TIPOS / DADOS
 ------------------------------------------------------------------------
 N = 3
-id_comprador = { 1..(N+2) }
 id_vendedor = { 1..N }
-datatype produto = notebook | tablet | impressora
+id_comprador = { 1..(N+3) }
+datatype produto = notebook | tablet | impressora | celular
 
 ------------------------------------------------------------------------
--- CANAIS
+-- CANAIS / EVENTOS
 ------------------------------------------------------------------------
 
-channel vender, abrirLeilao : id_vendedor.produto
-channel comprar : id_comprador.produto
-channel cadastrarComprador, efetuarLance, registrarLance : id_comprador.produto
+channel vender, iniciarLeilao : id_vendedor.produto
+channel comprar, efetuarLance : id_comprador.produto
+channel verificarProduto, registrarLance : id_comprador.produto
 channel encerrarLeilao : produto
+channel efetuarLance
 
 ------------------------------------------------------------------------
--- COMPRADOR(ES) E VENDEDOR(ES)
+-- COMPRADOR(ES) / VENDEDOR(ES)
 ------------------------------------------------------------------------
 
 COMPRADOR(id, produto) = 
-		cadastrarComprador!id!produto -> COMPRADOR(id, produto)
-	[]
-		efetuarLance!id!produto -> COMPRADOR(id, produto)
+		comprar!id!produto -> COMPRADOR(id, produto)
 
 COMPRADORES = ||| comprador:id_comprador, p:produto @ COMPRADOR(comprador, p) 
 
@@ -35,56 +34,46 @@ VENDEDOR(id, produto) =
 
 VENDEDORES = ||| id:id_vendedor, p:produto @ VENDEDOR(id, p)
 
---{ p_ | p_ <- produto, p_ != Nil}
-
 assert VENDEDORES :[deadlock free] 
 assert VENDEDORES :[deterministic] 
 
 ------------------------------------------------------------------------
--- LEILAO
+-- INTERFACE
 ------------------------------------------------------------------------
 
-queroComprarProduto(pv, pc) = 
-		if pv == pc then 
-			True 
-		else 
-			False
+existeProduto(produto, lista) = 
+	if card(verificacao(produto, set(lista))) > 0 then True else False
 
-verificarLance(lance, valorDoProduto) = 
-		if lance == valorDoProduto then 
-			True 
-		else 
-			False 
+verificacao(produto, C) = { p | (v,p) <- C, p == produto}
 
-SERVIDOR = 
-		vender?vendedor?produto -> abrirLeilao!vendedor!produto -> SERVIDOR
+
+INTERFACE = 
+		vender?vendedor?produto -> iniciarLeilao!vendedor!produto -> INTERFACE
 	[]
-		comprar?comprador?produto -> cadastrarComprador!comprador!produto -> SERVIDOR
-	[]
-		efetuarLance?comprador?produto -> registrarLance!comprador!produto ->
-		((encerrarLeilao!produto -> SERVIDOR) |~| SERVIDOR)
-
+		comprar?comprador?produto -> verificarProduto!comprador!produto -> INTERFACE
 			
-assert SERVIDOR :[deadlock free] 
-assert SERVIDOR :[deterministic] 
+assert INTERFACE :[deadlock free] 
+assert INTERFACE :[deterministic] 
 
-produtoUnico(produto, <>)             = True
-produtoUnico(produto, <(v,p)>^lista) = if produto == p then 
-											False 
-										 else 
-											produtoUnico(produto, lista)
 
-BUFFER(leiloes) = 
-		abrirLeilao?vendedor?produto:{ p | p <- produto, produtoUnico( p, leiloes)} -> BUFFER(leiloes^<(vendedor, produto)>)
-	[]
-		cadastrarComprador?comprador?produto -> BUFFER(leiloes)
+SERVIDOR(leiloes) = 
+		(iniciarLeilao?vendedor?produto ->
+			if not existeProduto(produto, leiloes) then 
+				SERVIDOR(leiloes^<(vendedor, produto)>)
+			else
+				SERVIDOR(leiloes)
+		)
 	[] 
-		registrarLance?comprador?produto -> BUFFER(leiloes)
+		verificarProduto?comprador?produto -> 	
+			if existeProduto(produto, leiloes) then
+				SERVIDOR(leiloes)
+			else
+				SERVIDOR(leiloes)
 	[]
-		encerrarLeilao?produto -> BUFFER(leiloes)
+		encerrarLeilao?produto -> SERVIDOR(leiloes)
 
-assert BUFFER(<>) :[deadlock free] 
-assert BUFFER(<>) :[deterministic] 		
+assert SERVIDOR(<>) :[deadlock free] 
+assert SERVIDOR(<>) :[deterministic] 		
 
 ------------------------------------------------------------------------
 -- ASSERTS
